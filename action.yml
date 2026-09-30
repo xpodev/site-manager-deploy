@@ -1,0 +1,48 @@
+name: Site Manager Deploy
+description: Publish a built static site through a Site Manager deploy service.
+author: xpodev
+branding:
+  icon: upload-cloud
+  color: blue
+
+inputs:
+  url:
+    description: Base URL of the deploy service, e.g. https://deploy.example.com
+    required: true
+  token:
+    description: Deploy key of the site, from the Site Manager admin panel. Pass it from a secret.
+    required: true
+  path:
+    description: Folder containing the built site. Its contents become the site root.
+    required: false
+    default: dist
+  retries:
+    description: How many times to retry on network errors and temporary server errors (5xx).
+    required: false
+    default: "2"
+
+outputs:
+  namespace:
+    description: Namespace the site was deployed to.
+    value: ${{ steps.deploy.outputs.namespace }}
+  site:
+    description: Name of the deployed site.
+    value: ${{ steps.deploy.outputs.site }}
+  files:
+    description: Number of files published.
+    value: ${{ steps.deploy.outputs.files }}
+  bytes:
+    description: Unpacked size of the published site in bytes.
+    value: ${{ steps.deploy.outputs.bytes }}
+
+runs:
+  using: composite
+  steps:
+    - id: deploy
+      shell: bash
+      run: bash "$GITHUB_ACTION_PATH/deploy.sh"
+      env:
+        DEPLOY_URL: ${{ inputs.url }}
+        DEPLOY_TOKEN: ${{ inputs.token }}
+        SITE_PATH: ${{ inputs.path }}
+        RETRIES: ${{ inputs.retries }}

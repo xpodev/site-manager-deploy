@@ -1,0 +1,62 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint
+        run: shellcheck deploy.sh
+
+      - name: Start mock deploy service
+        run: |
+          python3 .github/mock_server.py 8080 &
+          for _ in $(seq 20); do curl -s -o /dev/null http://127.0.0.1:8080 && break; sleep 0.25; done
+
+      - name: Build a test site
+        run: |
+          mkdir -p out/css
+          echo '<h1>hello</h1>' > out/index.html
+          echo 'h1 {}' > out/css/site.css
+
+      - name: Deploy
+        id: ok
+        uses: ./
+        with:
+          url: http://127.0.0.1:8080/
+          token: good-token
+          path: out
+
+      - name: Check outputs
+        run: |
+          test "${{ steps.ok.outputs.namespace }}/${{ steps.ok.outputs.site }}" = test/site
+          test "${{ steps.ok.outputs.files }}" = 2
+          test "${{ steps.ok.outputs.bytes }}" = 21
+
+      - name: Deploy with a revoked key
+        id: revoked
+        continue-on-error: true
+        uses: ./
+        with:
+          url: http://127.0.0.1:8080
+          token: old-token
+          path: out
+
+      - name: Deploy a missing folder
+        id: missing
+        continue-on-error: true
+        uses: ./
+        with:
+          url: http://127.0.0.1:8080
+          token: good-token
+          path: does-not-exist
+
+      - name: Check failures
+        run: |
+          test "${{ steps.revoked.outcome }}" = failure
+          test "${{ steps.missing.outcome }}" = failure
