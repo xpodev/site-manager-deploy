@@ -10,12 +10,18 @@ inputs:
     description: Base URL of the deploy service, e.g. https://deploy.example.com
     required: true
   token:
-    description: Deploy key of the site, from the Site Manager admin panel. Pass it from a secret.
+    description: Deploy key from the Site Manager admin panel, either a site key or a namespace key. Pass it from a secret.
     required: true
   path:
     description: Folder containing the built site. Its contents become the site root.
     required: false
     default: dist
+  site:
+    description: >-
+      Site to deploy. Required with a namespace key, which can deploy any site in its namespace.
+      Optional with a site key; if given, it must be the key's own site.
+    required: false
+    default: ""
   retries:
     description: How many times to retry on network errors and temporary server errors (5xx).
     required: false
@@ -45,4 +51,5 @@ runs:
         DEPLOY_URL: ${{ inputs.url }}
         DEPLOY_TOKEN: ${{ inputs.token }}
         SITE_PATH: ${{ inputs.path }}
+        SITE_NAME: ${{ inputs.site }}
         RETRIES: ${{ inputs.retries }}

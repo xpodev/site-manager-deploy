@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Packs a built site and publishes it through a Site Manager deploy service.
-# Inputs arrive as environment variables: DEPLOY_URL, DEPLOY_TOKEN, SITE_PATH, RETRIES.
+# Inputs arrive as environment variables: DEPLOY_URL, DEPLOY_TOKEN, SITE_PATH,
+# SITE_NAME (optional) and RETRIES.
 set -euo pipefail
 
 fail() {
@@ -30,6 +31,12 @@ RETRIES="${RETRIES:-2}"
 [[ -d "$SITE_PATH" ]] || fail "Folder '$SITE_PATH' does not exist. Did the build run, and does 'path' point at its output folder?"
 [[ -n "$(ls -A "$SITE_PATH")" ]] || fail "Folder '$SITE_PATH' is empty."
 endpoint="${DEPLOY_URL%/}/deploy"
+SITE_NAME="${SITE_NAME:-}"
+if [[ -n "$SITE_NAME" ]]; then
+  [[ "$SITE_NAME" =~ ^[a-z0-9]([a-z0-9._-]*[a-z0-9])?$ && "$SITE_NAME" != *..* ]] ||
+    fail "Invalid 'site' input '$SITE_NAME': use lowercase letters, digits, '.', '-' and '_', starting and ending with a letter or digit."
+  endpoint="$endpoint?site=$SITE_NAME"
+fi
 
 work="$(mktemp -d "${RUNNER_TEMP:-/tmp}/site-deploy.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
@@ -51,7 +58,13 @@ if [[ "$status" != 200 ]]; then
   msg="$(field error)"
   msg="HTTP $status: ${msg:-$body}"
   case "$status" in
-    401) msg="$msg. Check that the token secret holds the site's current deploy key; creating a new key replaces the old one." ;;
+    400)
+      if [[ -z "$SITE_NAME" && "$msg" == *"whole namespace"* ]]; then
+        msg="$msg. Set the 'site' input to the site to deploy."
+      fi
+      ;;
+    401) msg="$msg. Check that the token secret holds the current deploy key; creating a new key replaces the old one." ;;
+    403) msg="$msg. Remove the 'site' input or use a key for that site." ;;
     413) msg="$msg. The upload is larger than the deploy service or its proxy accepts (MAX_UPLOAD_MB / client_max_body_size)." ;;
     502) msg="$msg. The deploy service is up but cannot reach the admin service." ;;
   esac

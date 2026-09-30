@@ -24,19 +24,29 @@ jobs:
           echo '<h1>hello</h1>' > out/index.html
           echo 'h1 {}' > out/css/site.css
 
-      - name: Deploy
-        id: ok
+      - name: Deploy with a site key
+        id: site
         uses: ./
         with:
           url: http://127.0.0.1:8080/
-          token: good-token
+          token: site-token
           path: out
+
+      - name: Deploy with a namespace key
+        id: ns
+        uses: ./
+        with:
+          url: http://127.0.0.1:8080
+          token: ns-token
+          path: out
+          site: docs
 
       - name: Check outputs
         run: |
-          test "${{ steps.ok.outputs.namespace }}/${{ steps.ok.outputs.site }}" = test/site
-          test "${{ steps.ok.outputs.files }}" = 2
-          test "${{ steps.ok.outputs.bytes }}" = 21
+          test "${{ steps.site.outputs.namespace }}/${{ steps.site.outputs.site }}" = test/site
+          test "${{ steps.site.outputs.files }}" = 2
+          test "${{ steps.site.outputs.bytes }}" = 21
+          test "${{ steps.ns.outputs.namespace }}/${{ steps.ns.outputs.site }}" = test/docs
 
       - name: Deploy with a revoked key
         id: revoked
@@ -47,16 +57,37 @@ jobs:
           token: old-token
           path: out
 
+      - name: Namespace key without a site
+        id: no-site
+        continue-on-error: true
+        uses: ./
+        with:
+          url: http://127.0.0.1:8080
+          token: ns-token
+          path: out
+
+      - name: Site key for another site
+        id: other-site
+        continue-on-error: true
+        uses: ./
+        with:
+          url: http://127.0.0.1:8080
+          token: site-token
+          path: out
+          site: docs
+
       - name: Deploy a missing folder
         id: missing
         continue-on-error: true
         uses: ./
         with:
           url: http://127.0.0.1:8080
-          token: good-token
+          token: site-token
           path: does-not-exist
 
       - name: Check failures
         run: |
           test "${{ steps.revoked.outcome }}" = failure
+          test "${{ steps.no-site.outcome }}" = failure
+          test "${{ steps.other-site.outcome }}" = failure
           test "${{ steps.missing.outcome }}" = failure

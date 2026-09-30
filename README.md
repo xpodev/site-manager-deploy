@@ -10,11 +10,25 @@ A GitHub / Gitea / Forgejo Action that publishes a built static site through a [
     path: dist
 ```
 
-The action packs the contents of `path` and uploads them. The deploy key decides which `namespace/site` the upload replaces. If it fails, the step shows the reason and a hint, such as a revoked key, an upload that's too large, or an unreachable server.
+The action packs the contents of `path` and uploads them. The deploy key decides where the upload goes:
+
+- **Site key**: the key's own `namespace/site`. `site` can be left out.
+- **Namespace key**: any site in the key's namespace. Set `site` to choose which one:
+
+```yaml
+- uses: xpodev/site-manager-deploy@v1
+  with:
+    url: ${{ vars.DEPLOY_URL }}
+    token: ${{ secrets.DEPLOY_TOKEN }}   # namespace key
+    path: dist
+    site: docs
+```
+
+A namespace key suits a monorepo or an organization secret shared by many repos. A site key limits the damage if one repository's secret leaks. If it fails, the step shows the reason and a hint, such as a revoked key, an upload that's too large, or an unreachable server.
 
 ## Setup
 
-1. In the Site Manager admin panel, create a deploy key for your site.
+1. In the Site Manager admin panel, create a deploy key: a site key, or a namespace key from the namespace's panel.
 2. In the repository settings, add:
    - the secret `DEPLOY_TOKEN`: the deploy key
    - the variable `DEPLOY_URL`: the deploy service URL, e.g. `https://deploy.example.com`
@@ -69,8 +83,9 @@ The workflow file can live in `.gitea/workflows/` or `.forgejo/workflows/`.
 | Input     | Required | Default | Description |
 |-----------|----------|---------|-------------|
 | `url`     | yes      |         | Base URL of the deploy service |
-| `token`   | yes      |         | Deploy key of the site. Pass it from a secret. |
+| `token`   | yes      |         | Deploy key (site key or namespace key). Pass it from a secret. |
 | `path`    | no       | `dist`  | Folder with the built site. Its contents become the site root. |
+| `site`    | with a namespace key |  | Site to deploy. With a site key, leave it out or give the key's own site. |
 | `retries` | no       | `2`     | Retries on network errors and 5xx responses |
 
 ## Outputs
